@@ -501,6 +501,12 @@ src_libdrivers_la_SOURCES += \
 	src/hardware/maynuo-m97/protocol.c \
 	src/hardware/maynuo-m97/api.c
 endif
+if HW_METRIX_OX7520_3
+src_libdrivers_la_SOURCES += \
+	src/hardware/metrix-ox7520-3/protocol.h \
+	src/hardware/metrix-ox7520-3/protocol.c \
+	src/hardware/metrix-ox7520-3/api.c
+endif
 if HW_MICROCHIP_PICKIT2
 src_libdrivers_la_SOURCES += \
 	src/hardware/microchip-pickit2/protocol.h \
