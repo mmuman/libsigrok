@@ -27,6 +27,9 @@
 
 #define LOG_PREFIX "metrix-ox7520-3"
 
+#define NUM_CHANNELS 2
+#define SERIAL_WRITE_TIMEOUT_MS 1
+
 struct dev_context {
 };
 

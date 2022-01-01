@@ -22,21 +22,123 @@
 
 static struct sr_dev_driver metrix_ox7520_3_driver_info;
 
+static const char *trigger_sources[] = {
+	"CH1", "CH2", "EXT"
+};
+
+static const uint32_t scanopts[] = {
+	SR_CONF_CONN,
+	SR_CONF_SERIALCOMM,
+};
+
+static const uint32_t drvopts[] = {
+	SR_CONF_OSCILLOSCOPE,
+};
+
+static const uint32_t devopts[] = {
+	SR_CONF_CONN | SR_CONF_GET,
+};
+
+
+/* This is the default setting, but it can go up to 19200. */
+#define SERIALCOMM "9600/8n1/flow=2"
+
+static const char *supported_ox[] = {
+	/* OX7520 lacks the serial port */
+	/* OX7520-2 supports sending HPGL capture and printing but no commands */
+	"OX7520-3"
+};
+
 static GSList *scan(struct sr_dev_driver *di, GSList *options)
 {
-	struct drv_context *drvc;
-	GSList *devices;
-
-	(void)options;
+	struct sr_dev_inst *sdi;
+	struct dev_context *devc;
+	struct sr_channel *ch;
+	struct sr_channel_group *cg;
+	struct sr_config *src;
+	struct sr_serial_dev_inst *serial;
+	GSList *l, *devices;
+	int len, i;
+	const char *conn, *serialcomm;
+	char *buf, **tokens;
 
 	devices = NULL;
-	drvc = di->context;
-	drvc->instances = NULL;
+	conn = serialcomm = NULL;
+	for (l = options; l; l = l->next) {
+		src = l->data;
+		switch (src->key) {
+		case SR_CONF_CONN:
+			conn = g_variant_get_string(src->data, NULL);
+			break;
+		case SR_CONF_SERIALCOMM:
+			serialcomm = g_variant_get_string(src->data, NULL);
+			break;
+		}
+	}
+	if (!conn)
+		return NULL;
+	if (!serialcomm)
+		serialcomm = SERIALCOMM;
 
-	/* TODO: scan for devices, either based on a SR_CONF_CONN option
-	 * or on a USB scan. */
+	serial = sr_serial_dev_inst_new(conn, serialcomm);
 
-	return devices;
+	if (serial_open(serial, SERIAL_RDWR) != SR_OK) {
+		sr_err("Unable open serial port.");
+		return NULL;
+	}
+
+	if (serial_write_blocking(serial, "IDN?", 4, SERIAL_WRITE_TIMEOUT_MS) < 4) {
+		sr_err("Unable to send identification string.");
+		return NULL;
+	}
+
+	len = 128;
+	buf = g_malloc(len);
+	serial_readline(serial, &buf, &len, 250);
+	if (!len)
+		return NULL;
+
+	/* strip trailing comma */
+	if (buf[len-1] == ',')
+		buf[len-1] = '\0';
+	tokens = g_strsplit(buf, "   ", 3);
+	for (i = 0; tokens[i] != NULL; i++)
+		tokens[i] = g_strstrip(tokens[i]);
+	if (tokens[0] && tokens[1] && !strcmp("ITT instruments", tokens[1])
+			&& tokens[2]) {
+		for (i = 0; supported_ox[i]; i++) {
+			if (strcmp(supported_ox[i], tokens[0]))
+				continue;
+			sdi = g_malloc0(sizeof(struct sr_dev_inst));
+			sdi->status = SR_ST_INACTIVE;
+			sdi->vendor = g_strdup("Metrix");
+			sdi->model = g_strdup(tokens[0]);
+			sdi->version = g_strdup(tokens[2]);
+			devc = g_malloc0(sizeof(struct dev_context));
+			sdi->inst_type = SR_INST_SERIAL;
+			sdi->conn = serial;
+			sdi->priv = devc;
+
+			for (i = 0; i < NUM_CHANNELS; i++) {
+				cg = g_malloc0(sizeof(struct sr_channel_group));
+				cg->name = g_strdup(trigger_sources[i]);
+				ch = sr_channel_new(sdi, i, SR_CHANNEL_ANALOG, FALSE, trigger_sources[i]);
+				cg->channels = g_slist_append(cg->channels, ch);
+				sdi->channel_groups = g_slist_append(sdi->channel_groups, cg);
+			}
+
+			devices = g_slist_append(devices, sdi);
+			break;
+		}
+	}
+	g_strfreev(tokens);
+	g_free(buf);
+
+	serial_close(serial);
+	if (!devices)
+		sr_serial_dev_inst_free(serial);
+
+	return std_scan_complete(di, devices);
 }
 
 static int dev_open(struct sr_dev_inst *sdi)
@@ -100,13 +202,13 @@ static int config_list(uint32_t key, GVariant **data,
 {
 	int ret;
 
-	(void)sdi;
-	(void)data;
-	(void)cg;
-
 	ret = SR_OK;
 	switch (key) {
-	/* TODO */
+	case SR_CONF_SCAN_OPTIONS:
+	case SR_CONF_DEVICE_OPTIONS:
+		return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
+	case SR_CONF_SAMPLERATE:
+	case SR_CONF_DATA_SOURCE:
 	default:
 		return SR_ERR_NA;
 	}
