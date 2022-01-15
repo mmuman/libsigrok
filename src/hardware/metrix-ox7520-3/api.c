@@ -37,6 +37,27 @@ static const uint32_t drvopts[] = {
 
 static const uint32_t devopts[] = {
 	SR_CONF_CONN | SR_CONF_GET,
+/*
+	SR_CONF_CONTINUOUS,
+	SR_CONF_DATA_SOURCE, // 2 memories
+	SR_CONF_DATALOG,
+	SR_CONF_LIMIT_MSEC,
+	
+	SR_CONF_CONN | SR_CONF_GET,
+	SR_CONF_LIMIT_FRAMES | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_TIMEBASE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_NUM_HDIV | SR_CONF_GET,
+	SR_CONF_CAPTURE_RATIO | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_TRIGGER_SOURCE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+	SR_CONF_TRIGGER_SLOPE | SR_CONF_GET | SR_CONF_SET,
+	SR_CONF_BUFFERSIZE | SR_CONF_GET | SR_CONF_SET | SR_CONF_LIST,
+*/
+	SR_CONF_SAMPLERATE | SR_CONF_GET | SR_CONF_LIST,
+	SR_CONF_VDIV | SR_CONF_GET,
+/*
+	SR_CONF_NUM_VDIV | SR_CONF_GET,
+	SR_CONF_TRIGGER_LEVEL | SR_CONF_GET | SR_CONF_SET,
+*/
 };
 
 
@@ -62,6 +83,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 	const char *conn, *serialcomm;
 	char *buf, **tokens;
 
+	fprintf(stderr, "ox: %s\n", __FUNCTION__);
 	devices = NULL;
 	conn = serialcomm = NULL;
 	for (l = options; l; l = l->next) {
@@ -115,6 +137,7 @@ static GSList *scan(struct sr_dev_driver *di, GSList *options)
 			sdi->model = g_strdup(tokens[0]);
 			sdi->version = g_strdup(tokens[2]);
 			devc = g_malloc0(sizeof(struct dev_context));
+			//sr_sw_limits_init(&devc->limits);
 			sdi->inst_type = SR_INST_SERIAL;
 			sdi->conn = serial;
 			sdi->priv = devc;
@@ -146,8 +169,8 @@ static int dev_open(struct sr_dev_inst *sdi)
 	(void)sdi;
 
 	/* TODO: get handle from sdi->conn and open it. */
-
-	return SR_OK;
+	return std_serial_dev_open(sdi);
+//	return SR_OK;
 }
 
 static int dev_close(struct sr_dev_inst *sdi)
@@ -156,7 +179,8 @@ static int dev_close(struct sr_dev_inst *sdi)
 
 	/* TODO: get handle from sdi->conn and close it. */
 
-	return SR_OK;
+	return std_serial_dev_close(sdi);
+//	return SR_OK;
 }
 
 static int config_get(uint32_t key, GVariant **data,

@@ -24,6 +24,7 @@ SR_PRIV int metrix_ox7520_3_receive_data(int fd, int revents, void *cb_data)
 {
 	const struct sr_dev_inst *sdi;
 	struct dev_context *devc;
+	fprintf(stderr, "ox: %s\n", __FUNCTION__);
 
 	(void)fd;
 
